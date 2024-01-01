@@ -17,3 +17,12 @@ credentials.json
 
 # Go workspace file
 go.work
+
+tmp/
+
+# IDE specific files
+.vscode
+.idea
+
+# .env file
+.env
