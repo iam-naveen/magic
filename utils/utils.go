@@ -5,28 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/drive/v3"
 )
-
-var (
-	authCodeChan = make(chan string)
-)
-
-func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
-	keys, ok := r.URL.Query()["code"]
-	if !ok || len(keys[0]) < 1 {
-		log.Println("Url Param 'code' is missing")
-		return
-	}
-	authCode := keys[0]
-	authCodeChan <- authCode
-	fmt.Fprintf(w, "Authorization successful.\n\nYou can close this tab now. Go back to the terminal to continue.")
-}
 
 func OpenBrowser(url string) error {
 	var cmd *exec.Cmd
@@ -43,20 +29,17 @@ func OpenBrowser(url string) error {
 	return cmd.Run()
 }
 
-func GetTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-Token", oauth2.AccessTypeOffline)
-
-	if err := OpenBrowser(authURL); err != nil {
-		fmt.Printf("Go to the following link in your browser then type the "+
-			"authorization code: \n%v\n", authURL)
-	}
-
-	authCode := <-authCodeChan
-	tok, err := config.Exchange(context.TODO(), authCode)
+func GetConfigFromFile(file string) *oauth2.Config {
+	jsonKey, err := os.ReadFile(file)
 	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
+		log.Fatalf("Unable to read client secret file: %v", err)
 	}
-	return tok
+
+	config, err := google.ConfigFromJSON(jsonKey, drive.DriveScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	return config
 }
 
 func GetTokenFromFile(file string) (*oauth2.Token, error) {
@@ -70,13 +53,13 @@ func GetTokenFromFile(file string) (*oauth2.Token, error) {
 	return tok, err
 }
 
-func RefreshToken(config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error) {
+func RefreshToken(config *oauth2.Config, token *oauth2.Token) *oauth2.Token {
 	newSource := config.TokenSource(context.Background(), token)
 	newToken, err := newSource.Token()
 	if err != nil {
-		return nil, err
+		log.Fatalf("Unable to refresh token %v", err)
 	}
-	return newToken, nil
+	return newToken
 }
 
 func SaveToken(path string, token *oauth2.Token) {
@@ -88,4 +71,3 @@ func SaveToken(path string, token *oauth2.Token) {
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
 }
-

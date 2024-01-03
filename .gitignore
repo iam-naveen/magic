@@ -9,6 +9,8 @@ credentials.json
 *.so
 *.dylib
 
+magic
+
 # Test binary, built with `go test -c`
 *.test
 
