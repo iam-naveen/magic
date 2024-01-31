@@ -18,6 +18,8 @@ import (
 	"google.golang.org/api/drive/v3"
 )
 
+var refreshMode bool
+
 var authCodeChannel = make(chan string)
 
 var wg = &sync.WaitGroup{}
@@ -43,7 +45,7 @@ var authCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		_, err := os.ReadFile("token.json")
-		if err != nil {
+		if err != nil || refreshMode {
 			cred, credErr := os.ReadFile("credentials.json")
 			if credErr != nil {
 				log.Fatalf("Unable to read client secret file: %v", err)
@@ -87,5 +89,6 @@ var authCmd = &cobra.Command{
 }
 
 func init() {
+	authCmd.Flags().BoolVarP(&refreshMode, "refresh", "r", false, "Refresh the token")
 	rootCmd.AddCommand(authCmd)
 }

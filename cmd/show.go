@@ -15,6 +15,11 @@ import (
 	"google.golang.org/api/option"
 )
 
+var (
+	fileMode   bool
+	folderMode bool
+)
+
 // showCmd represents the show command
 var showCmd = &cobra.Command{
 	Use:   "show",
@@ -25,12 +30,11 @@ var showCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Authenticate using - `magic auth` command before using the cli")
 		}
-
 		config := utils.GetConfigFromFile("credentials.json")
-		
+
 		if token.Expiry.Before(time.Now()) {
 			token = utils.RefreshToken(config, token)
-			utils.SaveToken("token.js", token)
+			utils.SaveToken("token.json", token)
 		}
 
 		client := config.Client(context.Background(), token)
@@ -39,19 +43,25 @@ var showCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Unable to retrieve Drive client: %v", err)
 		}
-
 		res, err := service.Files.List().Do()
 		if err != nil {
 			log.Fatalf("Unable to retrieve files: %v", err)
 		}
-		fmt.Println(len(res.Files))
 
 		for _, file := range res.Files {
-			fmt.Printf("%s\n", file.Name)
+			if fileMode && file.MimeType != "application/vnd.google-apps.folder" {
+				fmt.Printf("%s\n", file.Name)
+			}
+			if folderMode && file.MimeType == "application/vnd.google-apps.folder" {
+				fmt.Printf("%s\n", file.Name)
+			}
 		}
 	},
 }
 
 func init() {
+	showCmd.Flags().BoolVarP(&fileMode, "files", "f", true, "Show the files in your Google Drive")
+	showCmd.Flags().BoolVarP(&folderMode, "folders", "F", true, "Show the folders in your Google Drive")
+	showCmd.MarkFlagsMutuallyExclusive("files", "folders")
 	rootCmd.AddCommand(showCmd)
 }
